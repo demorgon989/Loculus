@@ -127,7 +127,9 @@ impl App for BuilderApp {
                 2 => self.render_branding_page(ui),
                 3 => self.render_install_defaults_page(ui),
                 4 => self.render_build_page(ui),
-                _ => ui.label("Invalid step index."),
+                _ => {
+                    ui.label("Invalid step index.");
+                }
             };
         });
     }
