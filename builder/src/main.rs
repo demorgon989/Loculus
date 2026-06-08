@@ -3,29 +3,29 @@ mod packaging;
 use crate::packaging::PackagingInput;
 use eframe::egui::{self, RichText, Vec2};
 use eframe::{App, Frame, NativeOptions};
+use std::path::Path;
 
 #[derive(Debug, Clone)]
 struct AppState {
     current_page: usize,
 
-    payload_appimage_path: String,
-    shell_binary_source_path: String,
-
     metadata_app_name: String,
     metadata_version: String,
-    metadata_command_name: String,
     metadata_publisher: String,
     metadata_description: String,
-    metadata_tagline: String,
-    metadata_install_path: String,
-    default_menu_entry: bool,
-    default_desktop_shortcut: bool,
-    default_path_symlink: bool,
 
-    branding_icon_path: String,
+    payload_appimage_path: String,
+    payload_info: String,
+    shell_binary_source_path: String,
+
     branding_logo_path: String,
+    branding_sidebar_image_path: String,
     branding_banner_path: String,
-    branding_watermark_path: String,
+
+    install_path: String,
+    default_desktop_shortcut: bool,
+    default_menu_entry: bool,
+    default_path_symlink: bool,
 
     output_dir: String,
 
@@ -40,26 +40,25 @@ impl Default for AppState {
         Self {
             current_page: 0,
 
-            payload_appimage_path: String::new(),
-            shell_binary_source_path: "target/release/installer-shell".to_string(),
-
             metadata_app_name: String::new(),
-            metadata_version: String::new(),
-            metadata_command_name: String::new(),
+            metadata_version: "1.0.0".to_string(),
             metadata_publisher: String::new(),
             metadata_description: String::new(),
-            metadata_tagline: String::new(),
-            metadata_install_path: String::new(),
-            default_menu_entry: false,
-            default_desktop_shortcut: false,
-            default_path_symlink: false,
 
-            branding_icon_path: String::new(),
+            payload_appimage_path: String::new(),
+            payload_info: String::new(),
+            shell_binary_source_path: "target/release/installer-shell".to_string(),
+
             branding_logo_path: String::new(),
+            branding_sidebar_image_path: String::new(),
             branding_banner_path: String::new(),
-            branding_watermark_path: String::new(),
 
-            output_dir: String::new(),
+            install_path: "~/.local/lib/<safe_app_name>".to_string(),
+            default_desktop_shortcut: true,
+            default_menu_entry: true,
+            default_path_symlink: true,
+
+            output_dir: "~/AppImage-Installers".to_string(),
 
             build_logs: Vec::new(),
             build_progress: 0.0,
@@ -70,29 +69,19 @@ impl Default for AppState {
 }
 
 impl AppState {
-    const PAGE_COUNT: usize = 5;
+    const PAGE_TITLES: [&'static str; 5] = [
+        "Metadata",
+        "Payload",
+        "Branding",
+        "Install Defaults",
+        "Build",
+    ];
 
     fn page_title(&self) -> &'static str {
-        match self.current_page {
-            0 => "Welcome",
-            1 => "Payload",
-            2 => "Metadata",
-            3 => "Branding",
-            4 => "Build",
-            _ => "Unknown",
-        }
-    }
-
-    fn go_back(&mut self) {
-        if self.current_page > 0 {
-            self.current_page -= 1;
-        }
-    }
-
-    fn go_next(&mut self) {
-        if self.current_page + 1 < Self::PAGE_COUNT {
-            self.current_page += 1;
-        }
+        Self::PAGE_TITLES
+            .get(self.current_page)
+            .copied()
+            .unwrap_or("Unknown")
     }
 }
 
@@ -114,64 +103,63 @@ impl App for BuilderApp {
         egui::CentralPanel::default().show(&ctx, |ui| {
             ui.heading("Loculus Builder");
             ui.label(format!(
-                "Page {} of {} — {}",
+                "Step {} of {} — {}",
                 self.state.current_page + 1,
-                AppState::PAGE_COUNT,
+                AppState::PAGE_TITLES.len(),
                 self.state.page_title()
             ));
             ui.separator();
 
-            match self.state.current_page {
-                0 => self.render_welcome_page(ui),
-                1 => self.render_payload_page(ui),
-                2 => self.render_metadata_page(ui),
-                3 => self.render_branding_page(ui),
-                4 => self.render_build_page(ui),
-                _ => {
-                    ui.label("Invalid page index.");
-                }
-            }
-
-            ui.separator();
-            ui.horizontal(|ui| {
-                let back_enabled = self.state.current_page > 0;
-                if ui
-                    .add_enabled(back_enabled, egui::Button::new("Back"))
-                    .clicked()
-                {
-                    self.state.go_back();
-                }
-
-                let next_enabled = self.state.current_page + 1 < AppState::PAGE_COUNT;
-                if ui
-                    .add_enabled(next_enabled, egui::Button::new("Next"))
-                    .clicked()
-                {
-                    self.state.go_next();
+            ui.horizontal_wrapped(|ui| {
+                for (idx, title) in AppState::PAGE_TITLES.iter().enumerate() {
+                    let selected = self.state.current_page == idx;
+                    if ui.selectable_label(selected, *title).clicked() {
+                        self.state.current_page = idx;
+                    }
                 }
             });
+
+            ui.separator();
+
+            match self.state.current_page {
+                0 => self.render_metadata_page(ui),
+                1 => self.render_payload_page(ui),
+                2 => self.render_branding_page(ui),
+                3 => self.render_install_defaults_page(ui),
+                4 => self.render_build_page(ui),
+                _ => ui.label("Invalid step index."),
+            };
         });
     }
 }
 
 impl BuilderApp {
-    fn render_welcome_page(&mut self, ui: &mut egui::Ui) {
-        ui.label(RichText::new("Welcome").strong());
-        ui.label("This builder creates an installer AppImage by packaging:");
-        ui.label("• installer shell binary");
-        ui.label("• payload AppImage");
-        ui.label("• manifest + branding assets");
-        ui.label("• AppDir metadata and AppRun");
-        ui.add_space(8.0);
-        ui.label("Use Next to fill all required inputs, then run Build on page 5.");
+    fn render_metadata_page(&mut self, ui: &mut egui::Ui) {
+        ui.label(RichText::new("Metadata").strong());
+        ui.add_space(6.0);
+
+        ui.label("Application name:");
+        ui.add(egui::TextEdit::singleline(&mut self.state.metadata_app_name).desired_width(f32::INFINITY));
+
+        ui.label("Version:");
+        ui.add(egui::TextEdit::singleline(&mut self.state.metadata_version).desired_width(f32::INFINITY));
+
+        ui.label("Publisher:");
+        ui.add(egui::TextEdit::singleline(&mut self.state.metadata_publisher).desired_width(f32::INFINITY));
+
+        ui.label("Description:");
+        ui.add(
+            egui::TextEdit::multiline(&mut self.state.metadata_description)
+                .desired_width(f32::INFINITY)
+                .desired_rows(4),
+        );
     }
 
     fn render_payload_page(&mut self, ui: &mut egui::Ui) {
         ui.label(RichText::new("Payload").strong());
-        ui.label("Provide source paths used at packaging build time.");
-        ui.add_space(8.0);
+        ui.add_space(6.0);
 
-        ui.label("Payload AppImage source path:");
+        ui.label("Source AppImage:");
         ui.horizontal(|ui| {
             ui.add(
                 egui::TextEdit::singleline(&mut self.state.payload_appimage_path)
@@ -179,136 +167,154 @@ impl BuilderApp {
             );
             if ui.button("Browse...").clicked() {
                 if let Some(path) = rfd::FileDialog::new()
-                    .set_title("Select source AppImage")
-                    .add_filter("AppImage", &["AppImage", "appimage"])
+                    .add_filter("AppImage Files", &["AppImage"])
                     .pick_file()
                 {
                     self.state.payload_appimage_path = path.display().to_string();
+                    self.state.payload_info = payload_info_for(&path);
                 }
             }
         });
 
-        ui.add_space(8.0);
-        ui.label("Shell binary source path (default points to workspace release target):");
+        if !self.state.payload_info.trim().is_empty() {
+            ui.label(&self.state.payload_info);
+        }
+
+        ui.add_space(10.0);
+        ui.label("Shell binary source path:");
         ui.horizontal(|ui| {
             ui.add(
                 egui::TextEdit::singleline(&mut self.state.shell_binary_source_path)
                     .desired_width(f32::INFINITY),
             );
             if ui.button("Browse...").clicked() {
-                if let Some(path) = rfd::FileDialog::new()
-                    .set_title("Select installer-shell binary")
-                    .pick_file()
-                {
+                if let Some(path) = rfd::FileDialog::new().pick_file() {
                     self.state.shell_binary_source_path = path.display().to_string();
                 }
             }
         });
     }
 
-    fn render_metadata_page(&mut self, ui: &mut egui::Ui) {
-        ui.label(RichText::new("Metadata").strong());
-        ui.label("These values map directly into manifest.json keys consumed by the installer shell.");
-        ui.add_space(8.0);
-
-        ui.label("App name (manifest: name):");
-        ui.add(egui::TextEdit::singleline(&mut self.state.metadata_app_name).desired_width(f32::INFINITY));
-
-        ui.label("Version (manifest: version):");
-        ui.add(egui::TextEdit::singleline(&mut self.state.metadata_version).desired_width(f32::INFINITY));
-
-        ui.label("Command name (builder metadata for later use):");
-        ui.add(
-            egui::TextEdit::singleline(&mut self.state.metadata_command_name)
-                .desired_width(f32::INFINITY),
-        );
-
-        ui.label("Publisher (manifest: publisher):");
-        ui.add(egui::TextEdit::singleline(&mut self.state.metadata_publisher).desired_width(f32::INFINITY));
-
-        ui.label("Tagline (manifest: tagline):");
-        ui.add(egui::TextEdit::singleline(&mut self.state.metadata_tagline).desired_width(f32::INFINITY));
-
-        ui.label("Description (manifest: description):");
-        ui.add(
-            egui::TextEdit::multiline(&mut self.state.metadata_description)
-                .desired_width(f32::INFINITY)
-                .desired_rows(4),
-        );
-
-        ui.label("Install path (manifest: install_path, stored verbatim):");
-        ui.add(
-            egui::TextEdit::singleline(&mut self.state.metadata_install_path)
-                .desired_width(f32::INFINITY),
-        );
-
-        ui.add_space(8.0);
-        ui.label("Default installer options in manifest:");
-        ui.checkbox(&mut self.state.default_menu_entry, "default_menu_entry");
-        ui.checkbox(
-            &mut self.state.default_desktop_shortcut,
-            "default_desktop_shortcut",
-        );
-        ui.checkbox(&mut self.state.default_path_symlink, "default_path_symlink");
-    }
-
     fn render_branding_page(&mut self, ui: &mut egui::Ui) {
         ui.label(RichText::new("Branding").strong());
-        ui.label("Set installer icon and optional shell asset images.");
+        ui.add_space(6.0);
+
+        ui.label("Logo / Icon:");
+        ui.horizontal(|ui| {
+            ui.add(
+                egui::TextEdit::singleline(&mut self.state.branding_logo_path)
+                    .desired_width(f32::INFINITY),
+            );
+            if ui.button("Browse...").clicked() {
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("Images", &["png", "jpg", "jpeg", "svg", "webp"])
+                    .pick_file()
+                {
+                    self.state.branding_logo_path = path.display().to_string();
+                }
+            }
+        });
+        ui.label(RichText::new("PNG, square, 128x128+ recommended.").small());
+
         ui.add_space(8.0);
+        ui.label("Sidebar image (optional):");
+        ui.horizontal(|ui| {
+            ui.add(
+                egui::TextEdit::singleline(&mut self.state.branding_sidebar_image_path)
+                    .desired_width(f32::INFINITY),
+            );
+            if ui.button("Browse...").clicked() {
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("Images", &["png", "jpg", "jpeg", "svg", "webp"])
+                    .pick_file()
+                {
+                    self.state.branding_sidebar_image_path = path.display().to_string();
+                }
+            }
+        });
+        ui.label(RichText::new("~200x400 recommended.").small());
 
-        Self::path_picker_row(
-            ui,
-            "Installer icon path (required, copied to <AppDir>/<safename>.png):",
-            &mut self.state.branding_icon_path,
-            Some(("Images", vec!["png", "jpg", "jpeg"])),
+        ui.add_space(8.0);
+        ui.label("Banner (optional):");
+        ui.horizontal(|ui| {
+            ui.add(
+                egui::TextEdit::singleline(&mut self.state.branding_banner_path)
+                    .desired_width(f32::INFINITY),
+            );
+            if ui.button("Browse...").clicked() {
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("Images", &["png", "jpg", "jpeg", "svg", "webp"])
+                    .pick_file()
+                {
+                    self.state.branding_banner_path = path.display().to_string();
+                }
+            }
+        });
+    }
+
+    fn render_install_defaults_page(&mut self, ui: &mut egui::Ui) {
+        ui.label(RichText::new("Install Defaults").strong());
+        ui.add_space(6.0);
+
+        ui.label("Default install path:");
+        ui.add(egui::TextEdit::singleline(&mut self.state.install_path).desired_width(f32::INFINITY));
+
+        ui.add_space(8.0);
+        ui.checkbox(
+            &mut self.state.default_desktop_shortcut,
+            "Create desktop shortcut",
         );
-
-        Self::path_picker_row(
-            ui,
-            "Logo path (optional, manifest logo -> assets/logo.png):",
-            &mut self.state.branding_logo_path,
-            Some(("Images", vec!["png", "jpg", "jpeg"])),
-        );
-
-        Self::path_picker_row(
-            ui,
-            "Banner path (optional, manifest banner -> assets/banner.png):",
-            &mut self.state.branding_banner_path,
-            Some(("Images", vec!["png", "jpg", "jpeg"])),
-        );
-
-        Self::path_picker_row(
-            ui,
-            "Watermark path (optional, manifest watermark -> assets/watermark.png):",
-            &mut self.state.branding_watermark_path,
-            Some(("Images", vec!["png", "jpg", "jpeg"])),
+        ui.checkbox(&mut self.state.default_menu_entry, "Add to applications menu");
+        ui.checkbox(
+            &mut self.state.default_path_symlink,
+            "Create command-line symlink",
         );
     }
 
     fn render_build_page(&mut self, ui: &mut egui::Ui) {
         ui.label(RichText::new("Build").strong());
-        ui.label("Choose output location and run packaging.");
-        ui.add_space(8.0);
+        ui.add_space(6.0);
 
         ui.label("Output directory:");
         ui.horizontal(|ui| {
             ui.add(egui::TextEdit::singleline(&mut self.state.output_dir).desired_width(f32::INFINITY));
             if ui.button("Browse...").clicked() {
-                if let Some(path) = rfd::FileDialog::new()
-                    .set_title("Select output directory")
-                    .pick_folder()
-                {
+                if let Some(path) = rfd::FileDialog::new().pick_folder() {
                     self.state.output_dir = path.display().to_string();
                 }
             }
         });
 
+        ui.add_space(8.0);
+        ui.label(RichText::new("Configuration Summary").strong());
+        egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.label(format!("App: {}", value_or_placeholder(&self.state.metadata_app_name, "(not set)")));
+            ui.label(format!("Version: {}", value_or_placeholder(&self.state.metadata_version, "(not set)")));
+            ui.label(format!(
+                "Payload: {}",
+                payload_filename_or_placeholder(&self.state.payload_appimage_path)
+            ));
+            ui.label(format!(
+                "Logo/Icon: {}",
+                value_or_placeholder(&self.state.branding_logo_path, "(not set)")
+            ));
+            ui.label(format!(
+                "Sidebar image: {}",
+                value_or_placeholder(&self.state.branding_sidebar_image_path, "(optional, not set)")
+            ));
+            ui.label(format!(
+                "Banner: {}",
+                value_or_placeholder(&self.state.branding_banner_path, "(optional, not set)")
+            ));
+            ui.label(format!("Install path: {}", value_or_placeholder(&self.state.install_path, "(not set)")));
+            ui.label(format!("Output dir: {}", value_or_placeholder(&self.state.output_dir, "(not set)")));
+        });
+
+        ui.add_space(8.0);
         if ui.button("Build installer AppImage").clicked() {
             self.run_build();
         }
 
-        ui.add_space(8.0);
         ui.add(
             egui::ProgressBar::new(self.state.build_progress)
                 .show_percentage()
@@ -324,7 +330,7 @@ impl BuilderApp {
         }
 
         ui.separator();
-        ui.label("Build logs:");
+        ui.label("Build log:");
         egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
             if self.state.build_logs.is_empty() {
                 ui.label("(no build logs yet)");
@@ -336,66 +342,67 @@ impl BuilderApp {
         });
     }
 
-    fn path_picker_row(
-        ui: &mut egui::Ui,
-        label: &str,
-        value: &mut String,
-        filter: Option<(&str, Vec<&str>)>,
-    ) {
-        ui.label(label);
-        ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(value).desired_width(f32::INFINITY));
-            if ui.button("Browse...").clicked() {
-                let mut dialog = rfd::FileDialog::new();
-                if let Some((name, extensions)) = &filter {
-                    dialog = dialog.add_filter(*name, extensions);
-                }
-                if let Some(path) = dialog.pick_file() {
-                    *value = path.display().to_string();
-                }
-            }
-        });
-    }
-
     fn run_build(&mut self) {
         self.state.build_logs.clear();
         self.state.build_error = None;
         self.state.last_output_appimage.clear();
-        self.state.build_progress = 0.05;
-        self.state.build_logs.push("Validating inputs...".to_string());
+        self.state.build_progress = 0.0;
+
+        let app_name = self.state.metadata_app_name.trim();
+        if app_name.is_empty() {
+            self.state.build_error = Some("Application name is required.".to_string());
+            return;
+        }
+
+        if self.state.payload_appimage_path.trim().is_empty() {
+            self.state.build_error = Some("Payload AppImage path is required.".to_string());
+            return;
+        }
+
+        let payload_path = Path::new(self.state.payload_appimage_path.trim());
+        if !payload_path.is_file() {
+            self.state.build_error = Some("Payload AppImage path must point to an existing file.".to_string());
+            return;
+        }
+
+        if self.state.branding_logo_path.trim().is_empty() {
+            self.state.build_error = Some("Logo / Icon path is required.".to_string());
+            return;
+        }
+
+        if self.state.output_dir.trim().is_empty() {
+            self.state.build_error = Some("Output directory is required.".to_string());
+            return;
+        }
+
+        self.state.build_progress = 0.15;
+        self.state.build_logs.push("Starting packaging workflow...".to_string());
 
         let input = PackagingInput {
             app_name: self.state.metadata_app_name.clone(),
             app_version: self.state.metadata_version.clone(),
             publisher: self.state.metadata_publisher.clone(),
             description: self.state.metadata_description.clone(),
-            tagline: self.state.metadata_tagline.clone(),
+            tagline: String::new(),
             payload_appimage_source: self.state.payload_appimage_path.clone(),
-            install_path_verbatim: self.state.metadata_install_path.clone(),
+            install_path_verbatim: self.state.install_path.clone(),
             default_menu_entry: self.state.default_menu_entry,
             default_desktop_shortcut: self.state.default_desktop_shortcut,
             default_path_symlink: self.state.default_path_symlink,
-            icon_source: self.state.branding_icon_path.clone(),
+            icon_source: self.state.branding_logo_path.clone(),
             logo_source: self.state.branding_logo_path.clone(),
             banner_source: self.state.branding_banner_path.clone(),
-            watermark_source: self.state.branding_watermark_path.clone(),
+            watermark_source: self.state.branding_sidebar_image_path.clone(),
             output_dir: self.state.output_dir.clone(),
             shell_binary_source: self.state.shell_binary_source_path.clone(),
         };
-
-        self.state.build_progress = 0.2;
-        self.state
-            .build_logs
-            .push("Running packaging workflow...".to_string());
 
         match packaging::run_packaging(input) {
             Ok(result) => {
                 self.state.build_progress = 1.0;
                 self.state.last_output_appimage = result.output_appimage.display().to_string();
                 self.state.build_logs.extend(result.logs);
-                self.state
-                    .build_logs
-                    .push("Build completed successfully.".to_string());
+                self.state.build_logs.push("Build completed successfully.".to_string());
             }
             Err(err) => {
                 self.state.build_progress = 0.0;
@@ -404,6 +411,39 @@ impl BuilderApp {
             }
         }
     }
+}
+
+fn payload_info_for(path: &Path) -> String {
+    let file_name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "(unknown)".to_string());
+
+    match std::fs::metadata(path) {
+        Ok(meta) => {
+            let mb = meta.len() as f64 / (1024.0 * 1024.0);
+            format!("File: {file_name} ({mb:.1} MB)")
+        }
+        Err(_) => format!("File: {file_name}"),
+    }
+}
+
+fn value_or_placeholder<'a>(value: &'a str, placeholder: &'a str) -> &'a str {
+    if value.trim().is_empty() {
+        placeholder
+    } else {
+        value
+    }
+}
+
+fn payload_filename_or_placeholder(path_value: &str) -> String {
+    if path_value.trim().is_empty() {
+        return "(not selected)".to_string();
+    }
+    Path::new(path_value)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| path_value.to_string())
 }
 
 fn main() -> eframe::Result<()> {
