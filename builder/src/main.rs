@@ -113,6 +113,25 @@ impl App for BuilderApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut Frame) {
         let ctx = ui.ctx().clone();
 
+        egui::SidePanel::left("brand_nav")
+            .resizable(false)
+            .exact_width(200.0)
+            .show_inside(ui, |ui| {
+                ui.heading("Loculus Builder");
+                ui.add_space(8.0);
+                ui.separator();
+                ui.add_space(6.0);
+
+                ui.vertical(|ui| {
+                    for (idx, title) in AppState::PAGE_TITLES.iter().enumerate() {
+                        let selected = self.state.current_page == idx;
+                        if ui.selectable_label(selected, *title).clicked() {
+                            self.state.current_page = idx;
+                        }
+                    }
+                });
+            });
+
         egui::TopBottomPanel::bottom("nav_footer").show_inside(ui, |ui| {
             ui.separator();
             ui.add_space(10.0);
@@ -173,17 +192,6 @@ impl App for BuilderApp {
                 AppState::PAGE_TITLES.len(),
                 self.state.page_title()
             ));
-            ui.separator();
-
-            ui.horizontal_wrapped(|ui| {
-                for (idx, title) in AppState::PAGE_TITLES.iter().enumerate() {
-                    let selected = self.state.current_page == idx;
-                    if ui.selectable_label(selected, *title).clicked() {
-                        self.state.current_page = idx;
-                    }
-                }
-            });
-
             ui.separator();
 
             ui.horizontal(|ui| {
