@@ -33,6 +33,7 @@ struct AppState {
     build_progress: f32,
     build_error: Option<String>,
     last_output_appimage: String,
+    build_succeeded: bool,
 }
 
 impl Default for AppState {
@@ -64,6 +65,7 @@ impl Default for AppState {
             build_progress: 0.0,
             build_error: None,
             last_output_appimage: String::new(),
+            build_succeeded: false,
         }
     }
 }
@@ -82,6 +84,14 @@ impl AppState {
             .get(self.current_page)
             .copied()
             .unwrap_or("Unknown")
+    }
+
+    fn go_back(&mut self) {
+        self.current_page = self.current_page.saturating_sub(1);
+    }
+
+    fn go_next(&mut self) {
+        self.current_page = (self.current_page + 1).min(4);
     }
 }
 
@@ -131,6 +141,17 @@ impl App for BuilderApp {
                     ui.label("Invalid step index.");
                 }
             };
+
+            ui.separator();
+            ui.horizontal(|ui| {
+                if self.state.current_page > 0 && ui.button("Back").clicked() {
+                    self.state.go_back();
+                }
+
+                if self.state.current_page < 4 && ui.button("Next").clicked() {
+                    self.state.go_next();
+                }
+            });
         });
     }
 }
@@ -326,6 +347,23 @@ impl BuilderApp {
             self.run_build();
         }
 
+        let ctx = ui.ctx().clone();
+
+        if self.state.build_succeeded {
+            egui::Frame::group(ui.style())
+                .fill(egui::Color32::from_rgb(24, 74, 42))
+                .show(ui, |ui| {
+                    ui.colored_label(
+                        egui::Color32::from_rgb(170, 245, 190),
+                        RichText::new("✅ Build succeeded").strong(),
+                    );
+                    ui.label(format!("Installer AppImage: {}", self.state.last_output_appimage));
+                    if ui.button("Finish").clicked() {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                });
+        }
+
         ui.add(
             egui::ProgressBar::new(self.state.build_progress)
                 .show_percentage()
@@ -337,7 +375,15 @@ impl BuilderApp {
         }
 
         if let Some(err) = &self.state.build_error {
-            ui.colored_label(egui::Color32::from_rgb(190, 40, 40), format!("Build error: {err}"));
+            egui::Frame::group(ui.style())
+                .fill(egui::Color32::from_rgb(84, 24, 24))
+                .show(ui, |ui| {
+                    ui.colored_label(
+                        egui::Color32::from_rgb(255, 190, 190),
+                        RichText::new("❌ Build failed").strong(),
+                    );
+                    ui.label(err);
+                });
         }
 
         ui.separator();
@@ -358,6 +404,7 @@ impl BuilderApp {
         self.state.build_error = None;
         self.state.last_output_appimage.clear();
         self.state.build_progress = 0.0;
+        self.state.build_succeeded = false;
 
         let app_name = self.state.metadata_app_name.trim();
         if app_name.is_empty() {
@@ -414,11 +461,13 @@ impl BuilderApp {
                 self.state.last_output_appimage = result.output_appimage.display().to_string();
                 self.state.build_logs.extend(result.logs);
                 self.state.build_logs.push("Build completed successfully.".to_string());
+                self.state.build_succeeded = true;
             }
             Err(err) => {
                 self.state.build_progress = 0.0;
                 self.state.build_error = Some(err.clone());
                 self.state.build_logs.push(format!("Build failed: {err}"));
+                self.state.build_succeeded = false;
             }
         }
     }
