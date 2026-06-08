@@ -28,6 +28,7 @@ struct AppState {
     default_path_symlink: bool,
 
     output_dir: String,
+    install_path_manually_edited: bool,
 
     build_logs: Vec<String>,
     build_progress: f32,
@@ -60,6 +61,7 @@ impl Default for AppState {
             default_path_symlink: true,
 
             output_dir: "~/AppImage-Installers".to_string(),
+            install_path_manually_edited: false,
 
             build_logs: Vec::new(),
             build_progress: 0.0,
@@ -110,7 +112,60 @@ impl Default for BuilderApp {
 impl App for BuilderApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut Frame) {
         let ctx = ui.ctx().clone();
-        egui::CentralPanel::default().show(&ctx, |ui| {
+
+        egui::TopBottomPanel::bottom("nav_footer").show_inside(ui, |ui| {
+            ui.separator();
+            ui.add_space(10.0);
+
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.add_space(16.0);
+
+                if self.state.current_page < 4 {
+                    if ui
+                        .add_sized([96.0, 32.0], egui::Button::new("Next"))
+                        .clicked()
+                    {
+                        self.state.go_next();
+                    }
+
+                    if self.state.current_page > 0 {
+                        ui.add_space(8.0);
+                        if ui
+                            .add_sized([96.0, 32.0], egui::Button::new("Back"))
+                            .clicked()
+                        {
+                            self.state.go_back();
+                        }
+                    }
+                } else {
+                    let mut finish_clicked = false;
+                    ui.add_enabled_ui(self.state.build_succeeded, |ui| {
+                        if ui
+                            .add_sized([96.0, 32.0], egui::Button::new("Finish"))
+                            .clicked()
+                        {
+                            finish_clicked = true;
+                        }
+                    });
+
+                    if finish_clicked {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+
+                    ui.add_space(8.0);
+                    if ui
+                        .add_sized([96.0, 32.0], egui::Button::new("Back"))
+                        .clicked()
+                    {
+                        self.state.go_back();
+                    }
+                }
+            });
+
+            ui.add_space(10.0);
+        });
+
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.heading("Loculus Builder");
             ui.label(format!(
                 "Step {} of {} — {}",
@@ -131,26 +186,22 @@ impl App for BuilderApp {
 
             ui.separator();
 
-            match self.state.current_page {
-                0 => self.render_metadata_page(ui),
-                1 => self.render_payload_page(ui),
-                2 => self.render_branding_page(ui),
-                3 => self.render_install_defaults_page(ui),
-                4 => self.render_build_page(ui),
-                _ => {
-                    ui.label("Invalid step index.");
-                }
-            };
-
-            ui.separator();
             ui.horizontal(|ui| {
-                if self.state.current_page > 0 && ui.button("Back").clicked() {
-                    self.state.go_back();
-                }
+                ui.add_space(10.0);
+                ui.vertical(|ui| {
+                    ui.set_max_width(640.0);
 
-                if self.state.current_page < 4 && ui.button("Next").clicked() {
-                    self.state.go_next();
-                }
+                    match self.state.current_page {
+                        0 => self.render_metadata_page(ui),
+                        1 => self.render_payload_page(ui),
+                        2 => self.render_branding_page(ui),
+                        3 => self.render_install_defaults_page(ui),
+                        4 => self.render_build_page(ui),
+                        _ => {
+                            ui.label("Invalid step index.");
+                        }
+                    };
+                });
             });
         });
     }
@@ -284,8 +335,23 @@ impl BuilderApp {
         ui.label(RichText::new("Install Defaults").strong());
         ui.add_space(6.0);
 
+        if !self.state.install_path_manually_edited {
+            let app_name = self.state.metadata_app_name.trim();
+            if app_name.is_empty() {
+                self.state.install_path = "~/.local/lib/<safe_app_name>".to_string();
+            } else {
+                let safe = packaging::safe_name_for_display(app_name);
+                self.state.install_path = format!("~/.local/lib/{safe}");
+            }
+        }
+
         ui.label("Default install path:");
-        ui.add(egui::TextEdit::singleline(&mut self.state.install_path).desired_width(f32::INFINITY));
+        let response = ui.add(
+            egui::TextEdit::singleline(&mut self.state.install_path).desired_width(f32::INFINITY),
+        );
+        if response.changed() {
+            self.state.install_path_manually_edited = true;
+        }
 
         ui.add_space(8.0);
         ui.checkbox(
@@ -347,8 +413,6 @@ impl BuilderApp {
             self.run_build();
         }
 
-        let ctx = ui.ctx().clone();
-
         if self.state.build_succeeded {
             egui::Frame::group(ui.style())
                 .fill(egui::Color32::from_rgb(24, 74, 42))
@@ -358,9 +422,6 @@ impl BuilderApp {
                         RichText::new("✅ Build succeeded").strong(),
                     );
                     ui.label(format!("Installer AppImage: {}", self.state.last_output_appimage));
-                    if ui.button("Finish").clicked() {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                    }
                 });
         }
 

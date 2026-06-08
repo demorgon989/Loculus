@@ -272,6 +272,10 @@ fn safe_name(raw: &str) -> String {
     }
 }
 
+pub(crate) fn safe_name_for_display(raw: &str) -> String {
+    safe_name(raw)
+}
+
 fn expand_tilde(path: &str) -> PathBuf {
     if let Some(rest) = path.strip_prefix("~/") {
         if let Ok(home) = std::env::var("HOME") {
