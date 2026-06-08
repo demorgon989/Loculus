@@ -163,9 +163,10 @@ impl BuilderApp {
 
         ui.label("Source AppImage:");
         ui.horizontal(|ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut self.state.payload_appimage_path)
-                    .desired_width(f32::INFINITY),
+            let field_width = (ui.available_width() - 96.0).max(140.0);
+            ui.add_sized(
+                [field_width, 0.0],
+                egui::TextEdit::singleline(&mut self.state.payload_appimage_path),
             );
             if ui.button("Browse...").clicked() {
                 if let Some(path) = rfd::FileDialog::new()
@@ -185,9 +186,10 @@ impl BuilderApp {
         ui.add_space(10.0);
         ui.label("Shell binary source path:");
         ui.horizontal(|ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut self.state.shell_binary_source_path)
-                    .desired_width(f32::INFINITY),
+            let field_width = (ui.available_width() - 96.0).max(140.0);
+            ui.add_sized(
+                [field_width, 0.0],
+                egui::TextEdit::singleline(&mut self.state.shell_binary_source_path),
             );
             if ui.button("Browse...").clicked() {
                 if let Some(path) = rfd::FileDialog::new().pick_file() {
@@ -203,9 +205,10 @@ impl BuilderApp {
 
         ui.label("Logo / Icon:");
         ui.horizontal(|ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut self.state.branding_logo_path)
-                    .desired_width(f32::INFINITY),
+            let field_width = (ui.available_width() - 96.0).max(140.0);
+            ui.add_sized(
+                [field_width, 0.0],
+                egui::TextEdit::singleline(&mut self.state.branding_logo_path),
             );
             if ui.button("Browse...").clicked() {
                 if let Some(path) = rfd::FileDialog::new()
@@ -221,9 +224,10 @@ impl BuilderApp {
         ui.add_space(8.0);
         ui.label("Sidebar image (optional):");
         ui.horizontal(|ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut self.state.branding_sidebar_image_path)
-                    .desired_width(f32::INFINITY),
+            let field_width = (ui.available_width() - 96.0).max(140.0);
+            ui.add_sized(
+                [field_width, 0.0],
+                egui::TextEdit::singleline(&mut self.state.branding_sidebar_image_path),
             );
             if ui.button("Browse...").clicked() {
                 if let Some(path) = rfd::FileDialog::new()
@@ -239,9 +243,10 @@ impl BuilderApp {
         ui.add_space(8.0);
         ui.label("Banner (optional):");
         ui.horizontal(|ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut self.state.branding_banner_path)
-                    .desired_width(f32::INFINITY),
+            let field_width = (ui.available_width() - 96.0).max(140.0);
+            ui.add_sized(
+                [field_width, 0.0],
+                egui::TextEdit::singleline(&mut self.state.branding_banner_path),
             );
             if ui.button("Browse...").clicked() {
                 if let Some(path) = rfd::FileDialog::new()
@@ -279,7 +284,11 @@ impl BuilderApp {
 
         ui.label("Output directory:");
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.state.output_dir).desired_width(f32::INFINITY));
+            let field_width = (ui.available_width() - 96.0).max(140.0);
+            ui.add_sized(
+                [field_width, 0.0],
+                egui::TextEdit::singleline(&mut self.state.output_dir),
+            );
             if ui.button("Browse...").clicked() {
                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
                     self.state.output_dir = path.display().to_string();
