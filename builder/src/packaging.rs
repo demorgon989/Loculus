@@ -6,7 +6,7 @@
 //! - AppRun:  exec "$HERE/installer-shell" "$@"
 //!
 //! Manifest keys (shell consumes via serde, every field #[serde(default)]):
-//!   name, version, publisher, description, tagline, logo, banner, watermark,
+//!   name, version, publisher, description, tagline, logo, watermark,
 //!   appimage, install_path, default_menu_entry, default_desktop_shortcut,
 //!   default_path_symlink
 //! - appimage is RELATIVE: "payload/<filename>"
@@ -17,7 +17,6 @@
 //!   <AppDir>/installer-shell
 //!   <AppDir>/payload/<payload>.AppImage
 //!   <AppDir>/assets/logo.png      (if provided)
-//!   <AppDir>/assets/banner.png    (if provided)
 //!   <AppDir>/assets/watermark.png (if provided)
 //!   <AppDir>/<safename>.png
 //!   <AppDir>/<safename>.desktop
@@ -49,7 +48,6 @@ pub struct PackagingInput {
     pub default_path_symlink: bool,
     pub icon_source: String,
     pub logo_source: String,
-    pub banner_source: String,
     pub watermark_source: String,
     pub output_dir: String,
     pub shell_binary_source: String,
@@ -70,8 +68,6 @@ struct ManifestJson {
     tagline: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     logo: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    banner: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     watermark: Option<String>,
     appimage: String,
@@ -101,7 +97,6 @@ pub fn run_packaging(input: PackagingInput) -> Result<PackagingResult, String> {
     let icon_src = canonicalize_existing(&input.icon_source, "installer icon")?;
 
     let logo_src = canonicalize_optional_existing(&input.logo_source, "logo")?;
-    let banner_src = canonicalize_optional_existing(&input.banner_source, "banner")?;
     let watermark_src = canonicalize_optional_existing(&input.watermark_source, "watermark")?;
 
     let output_dir = resolve_output_dir(&input.output_dir)?;
@@ -141,7 +136,6 @@ pub fn run_packaging(input: PackagingInput) -> Result<PackagingResult, String> {
     logs.push(format!("Copied installer icon: {}", icon_dst.display()));
 
     let mut logo_rel: Option<String> = None;
-    let mut banner_rel: Option<String> = None;
     let mut watermark_rel: Option<String> = None;
 
     if let Some(path) = logo_src {
@@ -149,13 +143,6 @@ pub fn run_packaging(input: PackagingInput) -> Result<PackagingResult, String> {
         fs::copy(path, &dst).map_err(|e| format!("Failed to copy logo: {e}"))?;
         logo_rel = Some("assets/logo.png".to_string());
         logs.push(format!("Copied logo asset: {}", dst.display()));
-    }
-
-    if let Some(path) = banner_src {
-        let dst = appdir.join("assets/banner.png");
-        fs::copy(path, &dst).map_err(|e| format!("Failed to copy banner: {e}"))?;
-        banner_rel = Some("assets/banner.png".to_string());
-        logs.push(format!("Copied banner asset: {}", dst.display()));
     }
 
     if let Some(path) = watermark_src {
@@ -172,7 +159,6 @@ pub fn run_packaging(input: PackagingInput) -> Result<PackagingResult, String> {
         description: input.description,
         tagline: input.tagline,
         logo: logo_rel,
-        banner: banner_rel,
         watermark: watermark_rel,
         appimage: format!("payload/{payload_filename}"),
         install_path: input.install_path_verbatim,
