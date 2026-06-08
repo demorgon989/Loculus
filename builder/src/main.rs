@@ -112,28 +112,39 @@ impl Default for BuilderApp {
 impl App for BuilderApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut Frame) {
         let ctx = ui.ctx().clone();
+        const HEADER_TOP_PAD: f32 = 24.0;
+        const HEADER_BAND_HEIGHT: f32 = 44.0;
 
         egui::SidePanel::left("brand_nav")
             .resizable(false)
-            .exact_width(200.0)
+            .exact_width(240.0)
             .show_inside(ui, |ui| {
-                ui.heading("Loculus Builder");
-                ui.add_space(8.0);
+                ui.add_space(HEADER_TOP_PAD);
+                ui.allocate_ui_with_layout(
+                    egui::vec2(ui.available_width(), HEADER_BAND_HEIGHT),
+                    egui::Layout::left_to_right(egui::Align::Center),
+                    |ui| {
+                        ui.label(RichText::new("Loculus Builder").size(28.0).strong());
+                    },
+                );
                 ui.separator();
-                ui.add_space(6.0);
+                ui.add_space(10.0);
 
                 ui.vertical(|ui| {
                     for (idx, title) in AppState::PAGE_TITLES.iter().enumerate() {
                         let selected = self.state.current_page == idx;
-                        if ui.selectable_label(selected, *title).clicked() {
+                        if ui
+                            .selectable_label(selected, RichText::new(*title).size(16.0))
+                            .clicked()
+                        {
                             self.state.current_page = idx;
                         }
+                        ui.add_space(4.0);
                     }
                 });
             });
 
         egui::TopBottomPanel::bottom("nav_footer").show_inside(ui, |ui| {
-            ui.separator();
             ui.add_space(10.0);
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -185,19 +196,32 @@ impl App for BuilderApp {
         });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.heading("Loculus Builder");
-            ui.label(format!(
-                "Step {} of {} — {}",
-                self.state.current_page + 1,
-                AppState::PAGE_TITLES.len(),
-                self.state.page_title()
-            ));
-            ui.separator();
+            let max_content_width = 640.0;
 
+            ui.add_space(HEADER_TOP_PAD);
             ui.horizontal(|ui| {
-                ui.add_space(10.0);
+                ui.add_space(32.0);
                 ui.vertical(|ui| {
-                    ui.set_max_width(640.0);
+                    ui.set_max_width(max_content_width);
+
+                    ui.allocate_ui_with_layout(
+                        egui::vec2(ui.available_width(), HEADER_BAND_HEIGHT),
+                        egui::Layout::left_to_right(egui::Align::Center),
+                        |ui| {
+                            ui.label(
+                                RichText::new(format!(
+                                    "Step {} of {} — {}",
+                                    self.state.current_page + 1,
+                                    AppState::PAGE_TITLES.len(),
+                                    self.state.page_title()
+                                ))
+                                .size(20.0)
+                                .strong(),
+                            );
+                        },
+                    );
+                    ui.separator();
+                    ui.add_space(10.0);
 
                     match self.state.current_page {
                         0 => self.render_metadata_page(ui),
@@ -216,20 +240,24 @@ impl App for BuilderApp {
 }
 
 impl BuilderApp {
+    fn field_label(ui: &mut egui::Ui, text: &str) {
+        ui.label(RichText::new(text).size(16.0).strong());
+    }
+
     fn render_metadata_page(&mut self, ui: &mut egui::Ui) {
         ui.label(RichText::new("Metadata").strong());
         ui.add_space(6.0);
 
-        ui.label("Application name:");
+        Self::field_label(ui, "Application name:");
         ui.add(egui::TextEdit::singleline(&mut self.state.metadata_app_name).desired_width(f32::INFINITY));
 
-        ui.label("Version:");
+        Self::field_label(ui, "Version:");
         ui.add(egui::TextEdit::singleline(&mut self.state.metadata_version).desired_width(f32::INFINITY));
 
-        ui.label("Publisher:");
+        Self::field_label(ui, "Publisher:");
         ui.add(egui::TextEdit::singleline(&mut self.state.metadata_publisher).desired_width(f32::INFINITY));
 
-        ui.label("Description:");
+        Self::field_label(ui, "Description:");
         ui.add(
             egui::TextEdit::multiline(&mut self.state.metadata_description)
                 .desired_width(f32::INFINITY)
@@ -241,7 +269,7 @@ impl BuilderApp {
         ui.label(RichText::new("Payload").strong());
         ui.add_space(6.0);
 
-        ui.label("Source AppImage:");
+        Self::field_label(ui, "Source AppImage:");
         ui.horizontal(|ui| {
             let field_width = (ui.available_width() - 96.0).max(140.0);
             ui.add_sized(
@@ -264,7 +292,7 @@ impl BuilderApp {
         }
 
         ui.add_space(10.0);
-        ui.label("Shell binary source path:");
+        Self::field_label(ui, "Shell binary source path:");
         ui.horizontal(|ui| {
             let field_width = (ui.available_width() - 96.0).max(140.0);
             ui.add_sized(
@@ -283,7 +311,7 @@ impl BuilderApp {
         ui.label(RichText::new("Branding").strong());
         ui.add_space(6.0);
 
-        ui.label("Logo / Icon:");
+        Self::field_label(ui, "Logo / Icon:");
         ui.horizontal(|ui| {
             let field_width = (ui.available_width() - 96.0).max(140.0);
             ui.add_sized(
@@ -302,7 +330,7 @@ impl BuilderApp {
         ui.label(RichText::new("PNG, square, 128x128+ recommended.").small());
 
         ui.add_space(8.0);
-        ui.label("Sidebar image (optional):");
+        Self::field_label(ui, "Sidebar image (optional):");
         ui.horizontal(|ui| {
             let field_width = (ui.available_width() - 96.0).max(140.0);
             ui.add_sized(
@@ -321,7 +349,7 @@ impl BuilderApp {
         ui.label(RichText::new("~200x400 recommended.").small());
 
         ui.add_space(8.0);
-        ui.label("Banner (optional):");
+        Self::field_label(ui, "Banner (optional):");
         ui.horizontal(|ui| {
             let field_width = (ui.available_width() - 96.0).max(140.0);
             ui.add_sized(
@@ -353,7 +381,7 @@ impl BuilderApp {
             }
         }
 
-        ui.label("Default install path:");
+        Self::field_label(ui, "Default install path:");
         let response = ui.add(
             egui::TextEdit::singleline(&mut self.state.install_path).desired_width(f32::INFINITY),
         );
@@ -377,7 +405,7 @@ impl BuilderApp {
         ui.label(RichText::new("Build").strong());
         ui.add_space(6.0);
 
-        ui.label("Output directory:");
+        Self::field_label(ui, "Output directory:");
         ui.horizontal(|ui| {
             let field_width = (ui.available_width() - 96.0).max(140.0);
             ui.add_sized(
