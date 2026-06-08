@@ -348,7 +348,7 @@ impl BuilderApp {
             if ui.button("Browse...").clicked() {
                 let mut dialog = rfd::FileDialog::new();
                 if let Some((name, extensions)) = &filter {
-                    dialog = dialog.add_filter(name, extensions);
+                    dialog = dialog.add_filter(*name, extensions);
                 }
                 if let Some(path) = dialog.pick_file() {
                     *value = path.display().to_string();
