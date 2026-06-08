@@ -114,6 +114,7 @@ impl App for BuilderApp {
         let ctx = ui.ctx().clone();
         const HEADER_TOP_PAD: f32 = 24.0;
         const HEADER_BAND_HEIGHT: f32 = 44.0;
+        const CENTRAL_DIVIDER_NUDGE_UP: f32 = 1.0;
 
         egui::SidePanel::left("brand_nav")
             .resizable(false)
@@ -122,7 +123,7 @@ impl App for BuilderApp {
                 ui.add_space(HEADER_TOP_PAD);
                 ui.allocate_ui_with_layout(
                     egui::vec2(ui.available_width(), HEADER_BAND_HEIGHT),
-                    egui::Layout::left_to_right(egui::Align::Center),
+                    egui::Layout::top_down(egui::Align::Center),
                     |ui| {
                         ui.label(RichText::new("Loculus Builder").size(28.0).strong());
                     },
@@ -198,7 +199,7 @@ impl App for BuilderApp {
         egui::CentralPanel::default().show_inside(ui, |ui| {
             let max_content_width = 640.0;
 
-            ui.add_space(HEADER_TOP_PAD);
+            ui.add_space((HEADER_TOP_PAD - CENTRAL_DIVIDER_NUDGE_UP).max(0.0));
             ui.horizontal(|ui| {
                 ui.add_space(32.0);
                 ui.vertical(|ui| {
