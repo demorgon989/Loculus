@@ -20,7 +20,6 @@ struct AppState {
 
     branding_logo_path: String,
     branding_sidebar_image_path: String,
-    branding_banner_path: String,
 
     install_path: String,
     default_desktop_shortcut: bool,
@@ -53,7 +52,6 @@ impl Default for AppState {
 
             branding_logo_path: String::new(),
             branding_sidebar_image_path: String::new(),
-            branding_banner_path: String::new(),
 
             install_path: "~/.local/lib/<safe_app_name>".to_string(),
             default_desktop_shortcut: true,
@@ -349,23 +347,6 @@ impl BuilderApp {
         });
         ui.label(RichText::new("~200x400 recommended.").small());
 
-        ui.add_space(8.0);
-        Self::field_label(ui, "Banner (optional):");
-        ui.horizontal(|ui| {
-            let field_width = (ui.available_width() - 96.0).max(140.0);
-            ui.add_sized(
-                [field_width, 0.0],
-                egui::TextEdit::singleline(&mut self.state.branding_banner_path),
-            );
-            if ui.button("Browse...").clicked() {
-                if let Some(path) = rfd::FileDialog::new()
-                    .add_filter("Images", &["png", "jpg", "jpeg", "svg", "webp"])
-                    .pick_file()
-                {
-                    self.state.branding_banner_path = path.display().to_string();
-                }
-            }
-        });
     }
 
     fn render_install_defaults_page(&mut self, ui: &mut egui::Ui) {
@@ -436,10 +417,6 @@ impl BuilderApp {
             ui.label(format!(
                 "Sidebar image: {}",
                 value_or_placeholder(&self.state.branding_sidebar_image_path, "(optional, not set)")
-            ));
-            ui.label(format!(
-                "Banner: {}",
-                value_or_placeholder(&self.state.branding_banner_path, "(optional, not set)")
             ));
             ui.label(format!("Install path: {}", value_or_placeholder(&self.state.install_path, "(not set)")));
             ui.label(format!("Output dir: {}", value_or_placeholder(&self.state.output_dir, "(not set)")));
@@ -547,7 +524,6 @@ impl BuilderApp {
             default_path_symlink: self.state.default_path_symlink,
             icon_source: self.state.branding_logo_path.clone(),
             logo_source: self.state.branding_logo_path.clone(),
-            banner_source: self.state.branding_banner_path.clone(),
             watermark_source: self.state.branding_sidebar_image_path.clone(),
             output_dir: self.state.output_dir.clone(),
             shell_binary_source: self.state.shell_binary_source_path.clone(),
